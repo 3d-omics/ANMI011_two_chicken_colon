@@ -1,0 +1,368 @@
+# Community composition
+
+```{r load_data_composition}
+load("data/data.Rdata")
+quality <- read_tsv("results/quality.tsv")
+```
+
+## Taxonomy barplot
+
+### Positive samples, coverage-filtered
+
+```{r barplot_positive_filtered_phylum, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+#Get phylum colors from the EHI standard
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  mutate(section=unlist(section)) %>%
+  filter(!is.na(count)) %>%
+  filter(count > 0) %>%
+  filter(section != "Ileum") %>%
+  filter(type == "Positive") %>%
+  filter(quality >= 4) %>%
+  ggplot(., aes(x=count,y=microsample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors[-4]) +
+    labs(x = "Relative abundance", y="Microsamples") +
+    facet_nested(cryosection  ~ .,  scales="free_y") + #facet per day and treatment
+ guides(fill = guide_legend(ncol = 1)) +
+    theme(strip.text.y = element_text(angle = 0),
+          axis.title.x = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines")) +
+   labs(fill="Phylum")
+```
+
+
+```{r barplot_positive_filtered_genus, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  mutate(section=unlist(section)) %>%
+  filter(!is.na(count)) %>%
+  filter(count > 0) %>%
+  filter(section != "Ileum") %>%
+  filter(type == "Positive") %>%
+  filter(quality >= 4) %>%
+  mutate(genome=factor(genome,levels=genome_tree$tip.label)) %>% 
+  ggplot(aes(x=count, y=microsample, fill=genus, group=genus)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    labs(x = "Relative abundance", y="Microsamples") +
+    facet_nested(cryosection  ~ .,  scales="free_y") + #facet per day and treatment
+ guides(fill = guide_legend()) +
+    theme(strip.text.y = element_text(angle = 0),
+          axis.title.x = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines"),
+          legend.position="bottom") +
+   labs(fill="Genus")
+```
+
+### Positive samples, coverage-unfiltered
+
+```{r barplot_positive_unfiltered, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+#Get phylum colors from the EHI standard
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  mutate(section=unlist(section)) %>%
+  filter(!is.na(count)) %>%
+  filter(count > 0) %>%
+  filter(section != "Ileum") %>%
+  filter(type == "Positive") %>%
+  filter(quality >= 4) %>%
+  ggplot(., aes(x=count,y=microsample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors) +
+    labs(x = "Relative abundance", y="Microsamples") +
+    facet_nested(cryosection ~ .,  scales="free_y", space="free") + #facet per day and treatment
+ guides(fill = guide_legend(ncol = 1)) +
+    theme(strip.text.y = element_text(angle = 0),
+          axis.title.x = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines")) +
+   labs(fill="Phylum")
+
+```
+
+### Control samples, coverage-unfiltered
+
+```{r barplot_controls, fig.height=15, fig.width=10, fig.fullwidth=TRUE}
+#Get phylum colors from the EHI standard
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    #filter(phylum %in% c("p__Actinomycetota","p__Bacillota","p__Bacillota_A","p__Pseudomonadota","p__Verrucomicrobiota")) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(., sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  filter(is.na(Xcoord)) %>%
+  filter(type %in% c("NegativeMembrane","NegativeCollection","NegativeReaction")) %>%
+  ggplot(., aes(x=count,y=microsample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors) +
+    labs(x = "Relative abundance", y="Membrane controls") +
+    facet_nested(cryosection + type ~ .,  scales="free_y") + #facet per day and treatment
+ guides(fill = guide_legend(ncol = 1)) +
+    theme(strip.text.y = element_text(angle = 0),
+          axis.text.y = element_blank(),
+          axis.title.x = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines")) +
+   labs(fill="Phylum")
+```
+
+## MAG overview
+
+```{r heatmap_positive_filtered, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+vertical_tree <- force.ultrametric(genome_tree,method="extend") %>%
+        ggtree(., size = 0.3)
+
+phylum_colors_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
+    column_to_rownames(var = "genome") %>%
+    select(phylum)
+
+vertical_tree <- gheatmap(vertical_tree, phylum_colors_heatmap, offset=-0.3, width=0.1, colnames=FALSE) +
+    scale_fill_manual(values=phylum_colors) +
+    new_scale_fill()
+
+sample_selection <- sample_metadata %>%
+      filter(!is.na(Xcoord)) %>%
+      left_join(quality, by=join_by(microsample==microsample)) %>%
+      filter(quality>=4) %>% select(microsample) %>% pull()
+
+genome_counts_selected <- genome_counts_filt %>%
+          select(all_of(c("genome",sample_selection))) %>% column_to_rownames(var="genome") %>% tss()
+
+vertical_tree <- gheatmap(vertical_tree, genome_counts_selected, offset=-0.2, width=0.5, colnames=FALSE, colnames_angle=90, font.size=3, colnames_position="top", colnames_offset_y = 15) +
+    vexpand(.08) +
+    coord_cartesian(clip = "off") +
+    scale_fill_gradient(low = "#f4f4f4", high = "#315b7d", na.value="#f4f4f4") +
+    new_scale_fill()
+
+vertical_tree
+```
+
+```{r mag_summary, warning=FALSE, comments="", message=FALSE}
+mag_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  filter(quality>=5) %>%
+  group_by(microsample,cryosection,phylum,genome) %>%
+  summarise(relabun=sum(count)) %>%
+    group_by(genome) %>%
+    summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>% 
+    arrange(-mean) 
+
+mag_summary %>%
+    slice(1:30) %>% 
+    tt()
+```
+
+```{r taxonomy_jitterplot_mags, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  filter(quality>=4) %>%
+    mutate(genome=factor(genome,levels=rev(mag_summary %>% pull(genome)))) %>%
+    filter(count > 0) %>%
+    ggplot(aes(x=count, y=genome, group=genome, color=phylum)) +
+        scale_color_manual(values=phylum_colors) +
+        geom_jitter(alpha=0.3) + 
+        facet_grid(.~cryosection)+
+        theme_minimal() + 
+        labs(y="Family", x="Relative abundance", color="Phylum")
+```
+
+## Genus overview
+
+```{r taxonomy_genus_summary, warning=FALSE, comments="", message=FALSE}
+genus_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(quality, by = join_by(microsample == microsample)) %>% #append sample metadata
+  filter(quality>=4) %>%
+  group_by(microsample,cryosection,phylum,genus) %>%
+  summarise(relabun=sum(count)) %>%
+  filter(genus != "g__") %>%
+  mutate(genus= sub("^g__", "", genus))
+
+genus_summary_sort <- genus_summary %>%
+    group_by(genus) %>%
+    summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
+    arrange(-mean)
+
+genus_summary_sort %>%
+    tt()
+```
+
+```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+genus_arrange <- genus_summary %>%
+    group_by(genus) %>%
+    summarise(mean=sum(relabun)) %>%
+    filter(genus != "g__")%>%
+    arrange(-mean) %>%
+    select(genus) %>%
+    mutate(genus= sub("^g__", "", genus)) %>%
+    pull()
+
+genus_summary %>%
+    mutate(genus=factor(genus,levels=rev(genus_summary_sort %>% pull(genus)))) %>%
+    filter(relabun > 0) %>%
+    ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
+        scale_color_manual(values=phylum_colors) +
+        geom_jitter(alpha=0.3) + 
+        facet_grid(.~cryosection)+
+        theme_minimal() + 
+        labs(y="Family", x="Relative abundance", color="Phylum")
+```
+
+```{r genus_correlations, warning=FALSE, comments="", message=FALSE}
+taxon_level="genus"
+
+taxon_list =c("g__Lactobacillus","g__Escherichia","g__Streptococcus","g__Eisenbergiella","g__Mediterraneibacter","g__Caccovicinus")
+
+genus_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "microsample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(microsample == microsample)) %>% #append sample metadata
+  left_join(quality, by=join_by(microsample==microsample)) %>%
+  filter(quality>=5) %>%
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(microsample,cryosection,!!sym(taxon_level)) %>%
+  summarise(relabun=sum(count))
+```
+
+```{r genus_correlations_plot, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Caccovicinus","g__Streptococcus")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Caccovicinus, y=g__Streptococcus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Lactobacillus","g__Streptococcus")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Lactobacillus, y=g__Streptococcus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Lactobacillus","g__Mediterraneibacter")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Mediterraneibacter, y=g__Lactobacillus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Streptococcus","g__Mediterraneibacter")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Streptococcus, y=g__Mediterraneibacter)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Lactobacillus","g__Caccovicinus")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Caccovicinus, y=g__Lactobacillus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Lactobacillus","g__Escherichia")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Escherichia, y=g__Lactobacillus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+
+genus_summary %>%
+  mutate(individual=substr(cryosection, 1, 4)) %>% 
+  filter(genus %in% c("g__Streptococcus","g__Caccovicinus")) %>%
+  pivot_wider(names_from=genus,values_from=relabun) %>%
+  ggplot(aes(x=g__Streptococcus, y=g__Caccovicinus)) +
+    geom_point() +
+    geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+    facet_grid(~individual)+
+    theme_minimal()
+```

@@ -1,0 +1,74 @@
+# Alpha diversity
+
+```{r load_data_alpha}
+load("data/data.Rdata")
+quality <- read_tsv("results/quality.tsv")
+```
+
+## Filtered
+
+```{r alpha_diversities_filtered, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="microsample")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="microsample")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="microsample")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(microsample==microsample)) %>%
+      full_join(phylogenetic,by=join_by(microsample==microsample)) %>%
+      left_join(sample_metadata, by=join_by(microsample==microsample))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv("results/alpha_div_filtered.tsv")
+
+# Print alpha diversity
+alpha_diversity %>%
+  select(microsample,richness, neutral, phylogenetic, section, buffer, batch, Xcoord, Ycoord, size) %>%
+  tt()
+  
+# Print alpha diversity summary
+alpha_diversity %>%
+  select(richness, neutral, phylogenetic, cryosection, batch) %>%
+  group_by(cryosection) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+```{r alpha_diversities_filtered_plot_section, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+alpha_diversity <- read_tsv("results/alpha_div_filtered.tsv")
+
+
+alpha_diversity %>%
+  pivot_longer(!c(microsample,cryosection,section,batch,collection,type,buffer,Xcoord,Ycoord,size), names_to = "metric", values_to = "value") %>%
+  left_join(quality,by=join_by(microsample==microsample)) %>%
+  mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic"))) %>%
+  ggplot(aes(x=cryosection, y=value, color=quality, group=cryosection))+ 
+        scale_color_gradient(low = "red", high = "green", name = "Quality") +
+        geom_boxplot(outlier.shape = NA) +
+        geom_jitter(width=0.2) + 
+        facet_grid(metric ~ cryosection, scales = "free")
+```

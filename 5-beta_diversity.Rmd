@@ -1,0 +1,76 @@
+# Beta diversity
+
+```{r load_data_beta}
+load("data/data.Rdata")
+quality <- read_tsv("results/quality.tsv")
+```
+
+```{r beta_diversities, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+selected_samples <- sample_metadata %>% 
+  filter(section != "Ileum") %>%
+  filter(type == "Positive") %>%
+  filter(microsample %in% colnames(genome_counts_filt)) %>%
+  filter(!is.na(Xcoord)) %>% select(microsample) %>% pull()
+
+#Calculate Hill numbers
+richness_caecum <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(all_of(selected_samples)) %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral_caecum <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(all_of(selected_samples)) %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic_caecum <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(all_of(selected_samples)) %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness_caecum %>%
+      full_join(neutral_caecum,by=c("first", "second")) %>%
+      full_join(phylogenetic_caecum,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write alpha diversities
+beta_diversity %>% write_tsv("results/beta_div.tsv")
+```
+
+```{r beta_diversities_caecum_plot, fig.height=8, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+beta_diversity <- read_tsv("results/beta_div.tsv")
+
+#Select high-quality samples
+caecum_samples_hq <- sample_metadata %>% 
+  left_join(quality,by=join_by(microsample==microsample)) %>%
+  filter(quality >= 4) %>% 
+  filter(!is.na(Xcoord)) %>% 
+  select(microsample) %>% 
+  pull()
+
+caecum_samples_nmds <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(all_of(caecum_samples_hq)) %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="dist") %>%
+            metaMDS(.,trymax = 999, k=2, trace=0) %>%
+            vegan::scores() %>%
+            as_tibble(., rownames = "microsample") %>%
+            left_join(sample_metadata, by = join_by(microsample == microsample)) %>%
+            group_by(cryosection) %>%
+            mutate(microsample_x=mean(NMDS1), microsample_y=mean(NMDS2))
+
+caecum_samples_nmds %>%
+            ggplot(aes(x=NMDS1,y=NMDS2, color=cryosection)) +
+                geom_point(size=2) +
+                geom_segment(aes(x=microsample_x, y=microsample_y, xend=NMDS1, yend=NMDS2), alpha=0.2) +
+                scale_color_manual(values=c("#a3d1cf","#5bb5b1","#d1a3cf","#a364a0")) +
+                theme_classic() +
+                theme(legend.position="right", legend.box="vertical") +
+                guides(color=guide_legend(title="Cryosection"))
+
+```
